@@ -1,0 +1,153 @@
+import pandas as pd
+import numpy as np
+import re
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.preprocessing import StandardScaler
+from gensim.models import Word2Vec
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import nltk
+
+# Download required NLTK resources
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+# Initialize stop words and lemmatizer
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+# Text Preprocessing
+def preprocess_text(text):
+    words = text.split()
+    words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
+    return ' '.join(words)
+
+# Load the dataset
+file_path = "/content/Phishing_Email.csv"
+data = pd.read_csv(file_path)
+
+# Data Cleaning
+data.drop('Unnamed: 0', axis=1, inplace=True, errors='ignore')
+data.dropna(subset=['Email Text'], inplace=True)
+data.drop_duplicates(inplace=True)
+
+# Apply preprocessing
+data['Email Text'] = data['Email Text'].str.lower()
+data['Email Text'] = data['Email Text'].apply(lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x))
+data['Email Text'] = data['Email Text'].apply(preprocess_text)
+
+# Splitting data into features and labels
+X = data['Email Text']
+y = data['Email Type']
+
+# ---- TF-IDF Model ----
+vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+X_tfidf = vectorizer.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.3, random_state=42)
+
+from sklearn.linear_model import LogisticRegression
+
+# Train Logistic Regression Model
+model_tfidf = LogisticRegression()
+model_tfidf.fit(X_train, y_train)
+y_pred_tfidf = model_tfidf.predict(X_test)
+
+# TF-IDF Metrics
+accuracy_tfidf = accuracy_score(y_test, y_pred_tfidf)
+precision_tfidf = precision_score(y_test, y_pred_tfidf, average='weighted')
+recall_tfidf = recall_score(y_test, y_pred_tfidf, average='weighted')
+f1_tfidf = f1_score(y_test, y_pred_tfidf, average='weighted')
+
+# ---- Word2Vec Model ----
+X_tokenized = [text.split() for text in X]
+word2vec_model = Word2Vec(sentences=X_tokenized, vector_size=100, window=5, min_count=1, workers=4)
+
+# Convert text to Word2Vec embeddings
+def vectorize_text(text):
+    words = text.split()
+    word_vectors = [word2vec_model.wv[word] for word in words if word in word2vec_model.wv]
+    return np.mean(word_vectors, axis=0) if word_vectors else np.zeros(100)
+
+X_vectors = np.array([vectorize_text(text) for text in X])
+
+# Train-Test Split for Word2Vec Model
+X_train_w2v, X_test_w2v, y_train_w2v, y_test_w2v = train_test_split(X_vectors, y, test_size=0.3, random_state=42)
+
+# Scale Word2Vec embeddings
+scaler = StandardScaler()
+X_train_w2v = scaler.fit_transform(X_train_w2v)
+X_test_w2v = scaler.transform(X_test_w2v)
+
+from sklearn.linear_model import LogisticRegression
+
+# Train Logistic Regression Model for Word2Vec
+model_w2v = LogisticRegression(class_weight ='balanced')
+model_w2v.fit(X_train_w2v, y_train_w2v)
+y_pred_w2v = model_w2v.predict(X_test_w2v)
+
+# Word2Vec Metrics
+accuracy_w2v = accuracy_score(y_test_w2v, y_pred_w2v)
+precision_w2v = precision_score(y_test_w2v, y_pred_w2v, average='weighted')
+recall_w2v = recall_score(y_test_w2v, y_pred_w2v, average='weighted')
+f1_w2v = f1_score(y_test_w2v, y_pred_w2v, average='weighted')
+
+# ---- 3D Bar Graph for All Metrics ----
+metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
+tfidf_scores = [accuracy_tfidf * 100, precision_tfidf * 100, recall_tfidf * 100, f1_tfidf * 100]
+w2v_scores = [accuracy_w2v * 100, precision_w2v * 100, recall_w2v * 100, f1_w2v * 100]
+
+# Create figure and 3D axis
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+# X-axis positions for bars
+x_pos = np.arange(len(metrics))
+y_pos = [0, 1]  # Two models: TF-IDF (0) and Word2Vec (1)
+
+# Plot 3D bars for each metric
+for i, metric in enumerate(metrics):
+    ax.bar3d(x_pos[i], y_pos[0], 0, 0.4, 0.4, tfidf_scores[i], color='green', shade=True)
+    ax.bar3d(x_pos[i], y_pos[1], 0, 0.4, 0.4, w2v_scores[i], color='blue', shade=True)
+
+# Labels and title
+ax.set_xlabel('Metrics')
+ax.set_ylabel('Models')
+ax.set_zlabel('Score (%)')
+ax.set_title('3D Performance Comparison of TF-IDF and Word2Vec Models')
+
+ax.set_xticks(x_pos)
+ax.set_xticklabels(metrics)
+ax.set_yticks(y_pos)
+ax.set_yticklabels(['TF-IDF', 'Word2Vec'])
+
+plt.show()
+
+# ---- Classification Report ----
+print("\n===== TF-IDF Model Classification Report =====")
+print(classification_report(y_test, y_pred_tfidf))
+
+print("\n===== Word2Vec Model Classification Report =====")
+print(classification_report(y_test_w2v, y_pred_w2v))
+
+# ---- Confusion Matrices ----
+fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+
+# TF-IDF Confusion Matrix
+cm_tfidf = confusion_matrix(y_test, y_pred_tfidf)
+disp_tfidf = ConfusionMatrixDisplay(confusion_matrix=cm_tfidf)
+disp_tfidf.plot(ax=ax[0], cmap='Blues')
+ax[0].set_title("TF-IDF Model Confusion Matrix")
+
+# Word2Vec Confusion Matrix
+cm_w2v = confusion_matrix(y_test_w2v, y_pred_w2v)
+disp_w2v = ConfusionMatrixDisplay(confusion_matrix=cm_w2v)
+disp_w2v.plot(ax=ax[1], cmap='Blues')
+ax[1].set_title("Word2Vec Model Confusion Matrix")
+
+plt.show()
