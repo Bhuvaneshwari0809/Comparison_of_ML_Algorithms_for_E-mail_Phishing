@@ -87,11 +87,13 @@ Confusion matrices for visualizing true vs predicted classifications
 Text-based classification reports for each model
 
 🧾 Results Summary
-Algorithm	Feature Type	Accuracy	Key Insights
-Logistic Regression	TF-IDF / Word2Vec	Moderate	Simple and interpretable; performs well with TF-IDF
-Random Forest	TF-IDF / Word2Vec	High	Handles non-linearity; good feature importance
-Decision Tree	TF-IDF / Word2Vec	Moderate	Easy visualization; may overfit
-MLP (Neural Network)	TF-IDF / Word2Vec	High	Learns complex relationships; better generalization
+| Algorithm            | Feature Type      | Accuracy | Key Insights                                        |
+| -------------------- | ----------------- | -------- | --------------------------------------------------- |
+| Logistic Regression  | TF-IDF / Word2Vec | Moderate | Simple and interpretable; performs well with TF-IDF |
+| Random Forest        | TF-IDF / Word2Vec | High     | Handles non-linearity; good feature importance      |
+| Decision Tree        | TF-IDF / Word2Vec | Moderate | Easy visualization; may overfit                     |
+| MLP (Neural Network) | TF-IDF / Word2Vec | High     | Learns complex relationships; better generalization |
+
 
 🚀 Future Enhancements
 Integrate deep learning models (e.g., LSTM, BERT)
